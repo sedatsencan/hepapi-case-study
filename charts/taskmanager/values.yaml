@@ -1,0 +1,148 @@
+# Safe above one replica only because run.py's two racy writes were moved to
+# atomic server-side operations. Without that, concurrent requests hand out
+# duplicate task ids.
+replicaCount: 3
+
+# One replica per node, and still schedulable beyond the node count: maxSkew is
+# a difference, not a cap. The database uses anti-affinity for the same purpose,
+# because its chart exposes that knob and not this one.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    # Without this the tainted control-plane counts as a permanently empty
+    # domain, the skew sits at its limit, and rollouts deadlock.
+    nodeTaintsPolicy: Honor
+    # labelSelector is filled in by the template from the chart's own selector
+    # labels, so it follows the release name instead of being hardcoded here.
+
+image:
+  # The in-cluster registry the pipeline pushes to.
+  repository: registry.registry.svc.cluster.local:5000/hepapi-case-study
+  # Defaults to .Chart.AppVersion. Overridden per environment.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+database:
+  # The URI lists every member and names the set, so the driver routes writes to
+  # the primary. A ClusterIP Service would spread them and secondaries reject.
+  statefulSetName: taskmanager-db-mongodb
+  headlessService: taskmanager-db-mongodb-headless
+  replicaCount: 3
+  replicaSetName: rs0
+  port: 27017
+  # Fixed by run.py, which selects the database with client.TaskManager.
+  name: TaskManager
+  username: taskmanager
+  # Created by scripts/create-credentials.sh before either release is installed.
+  credentialsSecret:
+    name: taskmanager-db-credentials
+    passwordKey: mongodb-passwords
+
+# Left empty, the chart generates a SECRET_KEY on first install and reuses it on
+# upgrades. Point existingSecret at an externally managed Secret to take over.
+appSecret:
+  existingSecret: ""
+  key: SECRET_KEY
+
+config:
+  # true enables the Werkzeug debugger, which is remote code execution.
+  flaskDebug: "false"
+  # How long the entrypoint waits for MongoDB before giving up and exiting.
+  waitTimeoutSeconds: "60"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  host: taskmanager.localtest.me
+  path: /
+  pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  # Matches the unprivileged user created in the Dockerfile.
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# The only endpoint the application exposes is "/", and it queries MongoDB.
+probes:
+  # Covers the database wait and gates the other two probes.
+  startup:
+    failureThreshold: 30
+    periodSeconds: 5
+  # Depends on MongoDB on purpose: without it the app cannot serve.
+  readiness:
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  # TCP on purpose: an HTTP probe would touch MongoDB, so a database blip would
+  # restart every pod. Liveness asks if the process is wedged, not if it can serve.
+  liveness:
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+terminationGracePeriodSeconds: 30
+
+# Keeps two replicas serving during a drain. Only meaningful above one replica:
+# minAvailable 1 against a single replica makes kubectl drain block forever.
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+autoscaling:
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 80
+  # Kubernetes waits five minutes before scaling down, so a burst of traffic
+  # leaves the extra pods running long after it ends. That is the right default
+  # for production, where flapping costs more than idle capacity, but it makes
+  # the behaviour impossible to observe; the local values shorten it.
+  behavior: {}
+
+# Default deny, then inbound from the ingress controller and outbound to MongoDB
+# and DNS. Enforcement depends on the CNI; verified against this kind cluster.
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+# topologySpreadConstraints is at the top of this file, next to replicaCount.

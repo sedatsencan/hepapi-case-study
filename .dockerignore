@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.example
+.bin/
+README.md
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+docker-compose.yml
+charts/
+scripts/
+kubernetes/
+kind/
+Makefile
+.image-tag

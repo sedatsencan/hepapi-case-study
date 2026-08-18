@@ -1,0 +1,59 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: hepapi-case-study
+
+# containerd 2.x dropped the inline registry.mirrors setting, so per-registry
+# configuration now lives in files under this directory. scripts/deploy-registry.sh
+# writes one there so the nodes can pull images that the in-cluster CI pushes.
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.cri.v1.images".registry]
+      config_path = "/etc/containerd/certs.d"
+
+nodes:
+  # Three workers, matching the three application replicas and the three replica
+  # set members, so every anti-affinity and topology spread rule in the charts is
+  # satisfiable and therefore actually verifiable rather than a silent no-op.
+  - role: control-plane
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+    labels:
+      ingress-ready: "true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 8080
+        protocol: TCP
+        listenAddress: "127.0.0.1"
+      - containerPort: 443
+        hostPort: 8443
+        protocol: TCP
+        listenAddress: "127.0.0.1"
+
+  - role: worker
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+    # The working tree, so the in-cluster CI can build what is on disk without
+    # the repository having to be pushed anywhere. cluster-up.sh substitutes the
+    # path; switching the pipeline to a Git remote is a one-line JCasC change.
+    extraMounts:
+      - hostPath: __REPO_ROOT__
+        containerPath: /workspace
+        readOnly: true
+
+  - role: worker
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+    # The working tree, so the in-cluster CI can build what is on disk without
+    # the repository having to be pushed anywhere. cluster-up.sh substitutes the
+    # path; switching the pipeline to a Git remote is a one-line JCasC change.
+    extraMounts:
+      - hostPath: __REPO_ROOT__
+        containerPath: /workspace
+        readOnly: true
+
+  - role: worker
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+    # The working tree, so the in-cluster CI can build what is on disk without
+    # the repository having to be pushed anywhere. cluster-up.sh substitutes the
+    # path; switching the pipeline to a Git remote is a one-line JCasC change.
+    extraMounts:
+      - hostPath: __REPO_ROOT__
+        containerPath: /workspace
+        readOnly: true

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "taskmanager.fullname" . }}
+  labels:
+    {{- include "taskmanager.labels" . | nindent 4 }}
+data:
+  # Consumed by docker/entrypoint.sh, which blocks until MongoDB answers.
+  DB_HOST: {{ include "taskmanager.database.waitHost" . | quote }}
+  DB_PORT: {{ .Values.database.port | quote }}
+  WAIT_TIMEOUT_SECONDS: {{ .Values.config.waitTimeoutSeconds | quote }}
+  FLASK_DEBUG: {{ .Values.config.flaskDebug | quote }}
+  PYTHONUNBUFFERED: "1"

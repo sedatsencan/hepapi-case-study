@@ -1,0 +1,25 @@
+# Pinned for reproducible builds. This is a hand-built substitute for a real
+# lock file (pip-compile / equivalent) — every direct AND transitive
+# dependency below is pinned on purpose, not left for pip to resolve, after
+# an unpinned Werkzeug resolved to 3.x and broke Flask 2.0.3's own `cli.py`
+# (it still imports `url_quote` from `werkzeug.urls`, removed in Werkzeug 3).
+# If the stack is confirmed stable, replace this block with a generated lock
+# file instead of maintaining these by hand.
+#
+# WTForms is pinned below 3.0 because classes.py imports the legacy
+# `TextField` alias, removed in WTForms 3.0. Flask-WTF is pinned to a
+# release line that still targets the WTForms 2.x API. Do not bump
+# WTForms/Flask-WTF without also updating classes.py to use StringField.
+#
+# pymongo was originally held below 4.0 because run.py called the legacy
+# Cursor.count(), removed in 4.0. That call is gone, so the constraint no
+# longer applies and this can move to 4.x.
+Flask==2.0.3
+Werkzeug==2.0.3
+Jinja2==3.0.3
+MarkupSafe==2.1.5
+itsdangerous==2.0.1
+click==8.0.4
+Flask-WTF==0.14.3
+WTForms==2.3.3
+pymongo==3.13.0

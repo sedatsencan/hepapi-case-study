@@ -1,0 +1,18 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- /*
+Only meaningful above one replica. A budget of minAvailable: 1 against a single
+replica makes `kubectl drain` block forever, because evicting the only pod would
+violate it and nothing else can satisfy it.
+*/ -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "taskmanager.fullname" . }}
+  labels:
+    {{- include "taskmanager.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "taskmanager.selectorLabels" . | nindent 6 }}
+{{- end }}

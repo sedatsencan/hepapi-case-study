@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "taskmanager.fullname" . }}-test-connection
+  # Deliberately not the application's labels. This pod is a test hook, not a
+  # replica, and the application's topology spread constraint selects on
+  # name plus instance: carrying them would make the test pod count against the
+  # spread, so running a test at full capacity could leave it Pending.
+  labels:
+    app.kubernetes.io/name: {{ include "taskmanager.name" . }}-test
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: test
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    helm.sh/hook: test
+    # Only cleaned up on the next run, not on success: deleting a successful
+    # pod immediately races `helm test --logs`, which then cannot read it.
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: test-connection
+      image: curlimages/curl:8.11.1
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      # Asserts on the rendered body, not just the status code: the application
+      # answers 200 for an empty page too, so a bare status check would pass
+      # against a broken template.
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          url="http://{{ include "taskmanager.fullname" . }}:{{ .Values.service.port }}/"
+          echo "requesting ${url}"
+          body="$(curl -fsS --max-time 10 "${url}")"
+          echo "${body}" | grep -q "SIMPLE TASK MANAGER"
+          echo "connection test passed"

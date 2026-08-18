@@ -1,0 +1,63 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hepapi-case-study-app:latest
+    container_name: hepapi-case-study-app
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: "mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@database:27017/TaskManager?authSource=TaskManager"
+      SECRET_KEY: "${SECRET_KEY}"
+      FLASK_DEBUG: "false"
+      DB_HOST: database
+      DB_PORT: "27017"
+    ports:
+      - "5050:5000"
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/"]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+    networks:
+      - service-network
+
+  database:
+    image: mongo:7.0@sha256:be3d6353f3ea3fd3d22e016d19da20fcd6937eda0739eb6d2aeed335baa60f90
+    container_name: hepapi-case-study-database
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_ROOT_USERNAME}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_ROOT_PASSWORD}"
+      MONGO_INITDB_DATABASE: TaskManager
+      MONGO_APP_USERNAME: "${MONGO_APP_USERNAME}"
+      MONGO_APP_PASSWORD: "${MONGO_APP_PASSWORD}"
+    volumes:
+      - database-data:/data/db
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --username=${MONGO_ROOT_USERNAME}
+        - --password=${MONGO_ROOT_PASSWORD}
+        - --authenticationDatabase=admin
+        - --eval=db.adminCommand('ping')
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+    networks:
+      - service-network
+
+volumes:
+  database-data:
+
+networks:
+  service-network:
+    driver: bridge

@@ -1,0 +1,50 @@
+architecture: replicaset
+replicaSetName: rs0
+replicaCount: 3
+
+# An arbiter breaks ties when the member count is even; with three it would only
+# add a failure domain.
+arbiter:
+  enabled: false
+
+image:
+  # MongoDB 8.3.8. Bitnami's free catalogue publishes no versioned tags, so the
+  # digest is what freezes the image; scripts/deploy-database.sh asserts the
+  # running server matches. Bump both together.
+  digest: sha256:0c57d0efdf2f08958e5cd1392b20664c92597c7c6da2fbd0e972bcfb96d0dc92
+
+auth:
+  enabled: true
+  rootUser: root
+  # Created by scripts/create-credentials.sh before this release is installed.
+  existingSecret: taskmanager-db-credentials
+  # Paired by index. The database name is fixed by run.py (client.TaskManager).
+  usernames:
+    - taskmanager
+  databases:
+    - TaskManager
+
+persistence:
+  enabled: true
+  size: 4Gi
+
+replicaSetConfigurationSettings:
+  enabled: false
+  configuration: {}
+
+pdb:
+  create: true
+  minAvailable: 2
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+podAntiAffinityPreset: hard
+
+metrics:
+  enabled: false

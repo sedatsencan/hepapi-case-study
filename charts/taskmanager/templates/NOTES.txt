@@ -1,0 +1,25 @@
+{{ .Chart.Name }} {{ .Chart.Version }} released as {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Reach the application:
+{{- if .Values.ingress.enabled }}
+
+  http://{{ .Values.ingress.host }}:8080/
+
+  (The kind cluster maps host port 8080 to the ingress controller.)
+{{- else }}
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "taskmanager.fullname" . }} 8081:{{ .Values.service.port }}
+  then open http://localhost:8081/
+{{- end }}
+
+Check the rollout:
+
+  kubectl --namespace {{ .Release.Namespace }} rollout status deployment/{{ include "taskmanager.fullname" . }}
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+Running {{ .Values.replicaCount }} replica(s) against replica set {{ .Values.database.replicaSetName }} ({{ .Values.database.replicaCount }} members).
+{{- if .Values.topologySpreadConstraints }}
+Replicas are spread one per node; check with:
+
+  kubectl --namespace {{ .Release.Namespace }} get pods -l app.kubernetes.io/name={{ include "taskmanager.name" . }} -o wide
+{{- end }}

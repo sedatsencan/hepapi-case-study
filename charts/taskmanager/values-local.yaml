@@ -1,0 +1,42 @@
+# Overrides for the local kind cluster.
+
+image:
+  # Images come either from the in-cluster registry (pipeline builds) or are
+  # side-loaded straight onto the nodes by scripts/build-and-load.sh. Both
+  # supply a tag that is unique per build, so a rebuild is never mistaken for a
+  # no-op and nothing has to be re-pulled.
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: nginx
+  # localtest.me resolves to 127.0.0.1 from public DNS, so this needs no
+  # /etc/hosts entry and no sudo.
+  host: taskmanager.localtest.me
+
+# Restates the chart default on purpose: the demo-friendly HPA thresholds below
+# lean on this small CPU request, so the dependency stays visible next to them.
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Autoscaling is on locally so the behaviour can actually be demonstrated;
+# scripts/scale-demo.sh drives it. The thresholds are deliberately easy to
+# trigger: the CPU request is small, so modest traffic already crosses 50%.
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 50
+  behavior:
+    scaleUp:
+      # React immediately rather than averaging over the default 15s window.
+      stabilizationWindowSeconds: 0
+    scaleDown:
+      # Kubernetes defaults to 300s. Shortened so a demo can show the pods come
+      # back down; production would keep the longer window to avoid flapping.
+      stabilizationWindowSeconds: 30

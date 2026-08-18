@@ -1,0 +1,15 @@
+apiVersion: v2
+name: taskmanager
+description: Task manager application backed by MongoDB
+type: application
+
+# Both fields are semantic versions, and they are deliberately independent:
+# version tracks the chart's own templates, appVersion tracks the application.
+# A templates-only change bumps version alone.
+version: 0.1.0
+# Drives the image tag the pipeline builds and deploys. Validated as a semantic
+# version on every run, so a malformed value fails the build rather than
+# producing an untraceable image.
+appVersion: "0.1.0"
+
+kubeVersion: ">=1.28.0-0"
